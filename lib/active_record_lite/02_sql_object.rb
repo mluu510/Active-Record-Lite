@@ -13,6 +13,9 @@ class MassObject
 end
 
 class SQLObject < MassObject
+
+  attr_accessor :id
+
   def self.columns
     @column_names ||= begin
       # Fetch column names from DB
@@ -74,22 +77,22 @@ class SQLObject < MassObject
   end
 
   def insert
-  #   columns = self.attributes.keys.join(", ")
-  #   values = self.attribute_values.join(", ")
-  #   query = <<-SQL
-  #   INSERT INTO
-  # #{self.tale_name} (#{columns})
-  #   VALUES
-  # (#{values})
-  #   SQL
-  #
-  #   DBConnection.execute(query)
-  #   self.id = DBConnection.last_insert_row_id
+    columns = self.attributes.keys.join(", ")
+    values = self.attribute_values.map { |value| "'#{value}'" }.join(", ")
+    query = <<-SQL
+    INSERT INTO
+      #{self.class.table_name} (#{columns})
+    VALUES
+      (#{values})
+    SQL
+
+    DBConnection.execute(query)
+    self.id = DBConnection.last_insert_row_id
   end
 
   def initialize(params={})
     columns = self.class.columns
-    # p "CALLED SELF.COLUMNS"
+
     params.each do |attr_name, value|
       raise "unknown attribute '#{attr_name}" unless columns.include?(attr_name.to_sym)
       attributes[attr_name.to_sym] = value
@@ -98,11 +101,24 @@ class SQLObject < MassObject
   end
 
   def save
-    # ...
+    if self.id.nil?
+      self.insert
+    else
+      self.update
+    end
   end
 
   def update
-    # ...
+    set_line = self.attributes.map do |attr_name, value|
+      "#{attr_name} = #{value.inspect}"
+    end.join(', ')
+    query = <<-SQL
+    UPDATE #{self.class.table_name}
+    SET #{set_line}
+    WHERE id = #{self.id}
+    SQL
+
+    DBConnection.execute(query)
   end
 
   def attribute_values
